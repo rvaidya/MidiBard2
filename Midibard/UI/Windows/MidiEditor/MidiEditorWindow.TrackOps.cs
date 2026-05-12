@@ -52,31 +52,16 @@ public partial class MidiEditorWindow
 
         if (ImGuiUtil.SuccessButton("Apply##doTranspose"))
         {
-            if (_trackOperationState.TransposeSemitones != 0)
-                CaptureHistorySnapshot();
+            var execution = ExecuteEditorTransform(
+                MidiForgeTrackTransforms.TransposeTracks,
+                new MidiForgeTransposeTracksOptions(
+                    _trackOperationState.TransposeSemitones,
+                    _trackOperationState.TransposeMinNoteNumber,
+                    _trackOperationState.TransposeMaxNoteNumber,
+                    _trackOperationState.TransposeCreateNewTracks));
 
-            bool needsReload = _selectedTrackIndex >= 0
-                && _selectedTrackIndex < _file.Tracks.Count
-                && _selectedTrackIndices.Contains(_selectedTrackIndex)
-                && !_trackOperationState.TransposeCreateNewTracks;
-
-            _file.TransposeTracks(
-                _selectedTrackIndices,
-                _trackOperationState.TransposeSemitones,
-                _trackOperationState.TransposeMinNoteNumber,
-                _trackOperationState.TransposeMaxNoteNumber,
-                _trackOperationState.TransposeCreateNewTracks);
-
-            if (needsReload)
-            {
-                _file.Tracks[_selectedTrackIndex].LoadEvents(_file.TempoMap);
-                _selectedEventIndices.Clear();
-                _globalEventsChecked = false;
-            }
-
-            _selectedTrackIndices.Clear();
-            _globalTracksChecked = false;
-            ImGui.CloseCurrentPopup();
+            if (execution.Succeeded)
+                ImGui.CloseCurrentPopup();
         }
 
         ImGui.SameLine();
@@ -142,20 +127,20 @@ public partial class MidiEditorWindow
             if (ImGuiUtil.SuccessButton("Merge##doMerge"))
             {
                 var targetIdx = validIndices[_trackOperationState.MergeTargetRelIdx];
-                CaptureHistorySnapshot();
-                _file.MergeTracks(
-                    targetIdx,
-                    validIndices,
-                    includeProgramChange: _trackOperationState.MergeIncludePC,
-                    includePitchBend: _trackOperationState.MergeIncludePB,
-                    includeControlChange: _trackOperationState.MergeIncludeCC,
-                    toleranceMs: _trackOperationState.MergeToleranceMs,
-                    removeEqualNotes: _trackOperationState.MergeRemoveEqualNotes,
-                    deleteOriginalTracks: _trackOperationState.MergeDeleteOriginalTracks);
-                SelectTrack(-1);
-                _selectedTrackIndices.Clear();
-                _globalTracksChecked = false;
-                ImGui.CloseCurrentPopup();
+                var execution = ExecuteEditorTransform(
+                    MidiForgeTrackTransforms.MergeTracks,
+                    new MidiForgeMergeTracksOptions(
+                        targetIdx,
+                        IncludeProgramChange: _trackOperationState.MergeIncludePC,
+                        IncludePitchBend: _trackOperationState.MergeIncludePB,
+                        IncludeControlChange: _trackOperationState.MergeIncludeCC,
+                        ToleranceMs: _trackOperationState.MergeToleranceMs,
+                        RemoveEqualNotes: _trackOperationState.MergeRemoveEqualNotes,
+                        DeleteOriginalTracks: _trackOperationState.MergeDeleteOriginalTracks),
+                    validIndices.ToArray());
+
+                if (execution.Succeeded)
+                    ImGui.CloseCurrentPopup();
             }
         }
 
@@ -227,51 +212,31 @@ public partial class MidiEditorWindow
 
             if (_trackOperationState.QuantizeNotesOnly)
             {
-                // Build (tick, noteNum, channel) key set from currently selected piano-roll events
-                var events = CurrentEvents;
-                if (events != null && _selectedTrackIndex >= 0)
-                {
-                    var keys = new HashSet<(long, byte, byte)>();
-                    foreach (var idx in _selectedEventIndices)
-                    {
-                        if ((uint)idx >= (uint)events.Count) continue;
-                        var ev = events[idx];
-                        if (ev.NoteOffSource == null) continue;
-                        if (ev.Source.Event is not NoteOnEvent noteOn) continue;
-                        keys.Add((ev.Tick, (byte)noteOn.NoteNumber, (byte)noteOn.Channel));
-                    }
-                    if (keys.Count > 0)
-                    {
-                        CaptureHistorySnapshot();
-                        _file.QuantizeNotes(_selectedTrackIndex, keys, grid, settings);
-                        _file.Tracks[_selectedTrackIndex].LoadEvents(_file.TempoMap);
-                        _selectedEventIndices.Clear();
-                        _globalEventsChecked = false;
-                    }
-                }
+                var execution = ExecuteEditorTransform(
+                    MidiForgeTrackTransforms.QuantizeSelectedNotes,
+                    new MidiForgeQuantizeSelectedNotesOptions(
+                        _selectedTrackIndex,
+                        _selectedTrackIndex < 0
+                            ? []
+                            : MidiEditorSelectionKeys.FromSelectedEvents(CurrentEvents, _selectedEventIndices),
+                        grid,
+                        settings));
+
+                if (execution.Succeeded)
+                    ImGui.CloseCurrentPopup();
             }
             else
             {
-                bool needsReload = !_trackOperationState.QuantizeToNewTrack
-                    && _selectedTrackIndex >= 0
-                    && _selectedTrackIndex < _file.Tracks.Count
-                    && _selectedTrackIndices.Contains(_selectedTrackIndex);
+                var execution = ExecuteEditorTransform(
+                    MidiForgeTrackTransforms.QuantizeTracks,
+                    new MidiForgeQuantizeTracksOptions(
+                        grid,
+                        settings,
+                        _trackOperationState.QuantizeToNewTrack));
 
-                CaptureHistorySnapshot();
-                _file.QuantizeTracks(_selectedTrackIndices, grid, settings, _trackOperationState.QuantizeToNewTrack);
-
-                if (needsReload)
-                {
-                    _file.Tracks[_selectedTrackIndex].LoadEvents(_file.TempoMap);
-                    _selectedEventIndices.Clear();
-                    _globalEventsChecked = false;
-                }
-
-                _selectedTrackIndices.Clear();
-                _globalTracksChecked = false;
+                if (execution.Succeeded)
+                    ImGui.CloseCurrentPopup();
             }
-
-            ImGui.CloseCurrentPopup();
         }
 
         ImGui.SameLine();
@@ -547,13 +512,12 @@ public partial class MidiEditorWindow
                 RemoveDuplicatedTimeSignatureEvents = _sanitizeRemoveDuplTimeSig,
                 Trim = _sanitizeTrim,
             };
-            CaptureHistorySnapshot();
-            _file.SanitizeFile(settings);
-            SelectTrack(-1);
-            _selectedTrackIndices.Clear();
-            _globalTracksChecked = false;
-            _globalEventsChecked = false;
-            ImGui.CloseCurrentPopup();
+            var execution = ExecuteEditorTransform(
+                MidiForgeTrackTransforms.SanitizeFile,
+                new MidiForgeSanitizeOptions(settings));
+
+            if (execution.Succeeded)
+                ImGui.CloseCurrentPopup();
         }
 
         ImGui.SameLine();

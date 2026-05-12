@@ -82,6 +82,43 @@ public class MidiForgeHistoryTests
     }
 
     [Fact]
+    public void DirectEditExecutor_NoOpDoesNotDirtyOrCaptureHistory()
+    {
+        var file = CreateEditableFile(Note(60, 0, 120));
+        var history = new MidiForgeHistory();
+        var beforeVersion = file.Version;
+
+        var changed = MidiEditorDirectEditExecutor.Execute(history, file, () => false);
+
+        changed.ShouldBeFalse();
+        history.CanUndo.ShouldBeFalse();
+        file.IsDirty.ShouldBeFalse();
+        file.Version.ShouldBe(beforeVersion);
+    }
+
+    [Fact]
+    public void DirectEditExecutor_ChangedEditMarksDirtyAndCapturesOneUndoSnapshot()
+    {
+        var file = CreateEditableFile(Note(60, 0, 120));
+        var history = new MidiForgeHistory();
+
+        var changed = MidiEditorDirectEditExecutor.Execute(history, file, () =>
+        {
+            file.Tracks[0].Name = "Changed";
+            file.Tracks[0].MarkNameDirty();
+            return true;
+        });
+
+        changed.ShouldBeTrue();
+        history.UndoCount.ShouldBe(1);
+        file.IsDirty.ShouldBeTrue();
+
+        history.Undo(file).ShouldBeTrue();
+        file.Tracks[0].Name.ShouldBeEmpty();
+        file.IsDirty.ShouldBeFalse();
+    }
+
+    [Fact]
     public void TransformExecutor_ValidationFailureDoesNotDirtyOrCaptureHistory()
     {
         var file = CreateEditableFile(Note(60, 0, 120));

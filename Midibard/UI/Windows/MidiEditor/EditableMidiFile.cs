@@ -643,22 +643,23 @@ public class EditableMidiFile
     /// Quantizes notes in the given tracks using the DryWetMidi native quantizer.
     /// If <paramref name="toNewTrack"/> is true, a new quantized track is inserted after each source track.
     /// </summary>
-    public void QuantizeTracks(IEnumerable<int> trackIndices, IGrid grid, QuantizingSettings settings, bool toNewTrack)
+    public int QuantizeTracks(IEnumerable<int> trackIndices, IGrid grid, QuantizingSettings settings, bool toNewTrack)
     {
-        var processedTracks = false;
+        var changedTracks = 0;
         foreach (var idx in trackIndices.OrderByDescending(i => i).ToList())
         {
             if (idx < 0 || idx >= Tracks.Count) continue;
             var t = Tracks[idx];
             if (t.IsConductorTrack) continue;
-            processedTracks = true;
             t.FlushChanges();
 
             var targetChunk = toNewTrack
                 ? new TrackChunk(t.Chunk.Events.Select(e => e.Clone()))
                 : t.Chunk;
+            var beforeNotes = GetNoteStateSnapshot(targetChunk);
 
             QuantizerUtilities.QuantizeObjects(targetChunk, ObjectType.Note, grid, TempoMap, settings);
+            var notesChanged = !beforeNotes.SequenceEqual(GetNoteStateSnapshot(targetChunk));
 
             if (toNewTrack)
             {
@@ -666,24 +667,35 @@ public class EditableMidiFile
                 newTrack.Name = $"{t.DisplayName} (quantized)";
                 newTrack.MarkNameDirty();
                 Tracks.Insert(idx + 1, newTrack);
+                changedTracks++;
+            }
+            else if (notesChanged)
+            {
+                changedTracks++;
             }
         }
-        for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
-        if (processedTracks)
+
+        if (changedTracks > 0)
+        {
+            for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
             MarkChanged();
+        }
+
+        return changedTracks;
     }
 
     /// <summary>
     /// Quantizes only the specified notes (identified by tick + noteNumber + channel) in the given track.
     /// </summary>
-    public void QuantizeNotes(int trackIndex,
+    public bool QuantizeNotes(int trackIndex,
         HashSet<(long tick, byte noteNum, byte channel)> selectedKeys,
         IGrid grid, QuantizingSettings baseSettings)
     {
-        if (trackIndex < 0 || trackIndex >= Tracks.Count) return;
+        if (trackIndex < 0 || trackIndex >= Tracks.Count) return false;
         var t = Tracks[trackIndex];
-        if (t.IsConductorTrack) return;
+        if (t.IsConductorTrack) return false;
         t.FlushChanges();
+        var beforeNotes = GetNoteStateSnapshot(t.Chunk);
 
         var settings = new QuantizingSettings
         {
@@ -697,7 +709,11 @@ public class EditableMidiFile
         };
 
         QuantizerUtilities.QuantizeObjects(t.Chunk, ObjectType.Note, grid, TempoMap, settings);
-        MarkChanged();
+        var changed = !beforeNotes.SequenceEqual(GetNoteStateSnapshot(t.Chunk));
+        if (changed)
+            MarkChanged();
+
+        return changed;
     }
 
     /// <summary>
@@ -753,6 +769,21 @@ public class EditableMidiFile
         var baseName = TransposedTrackNamePattern.Replace(trackName, string.Empty).Trim();
         return $"{baseName} (Transposed {previousTranspose + semitones})";
     }
+
+    private static NoteStateSnapshot[] GetNoteStateSnapshot(TrackChunk chunk)
+        => chunk.GetNotes()
+            .Select(note => new NoteStateSnapshot(
+                (byte)note.NoteNumber,
+                (byte)note.Channel,
+                note.Time,
+                note.Length))
+            .OrderBy(note => note.Time)
+            .ThenBy(note => note.Channel)
+            .ThenBy(note => note.NoteNumber)
+            .ThenBy(note => note.Length)
+            .ToArray();
+
+    private readonly record struct NoteStateSnapshot(byte NoteNumber, byte Channel, long Time, long Length);
 
     public void Save()
     {

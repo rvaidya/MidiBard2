@@ -1,3 +1,8 @@
+using System.Collections.Generic;
+
+using Melanchall.DryWetMidi.Interaction;
+using Melanchall.DryWetMidi.Tools;
+
 namespace MidiBard.Control.MidiControl.Editing;
 
 public sealed record MidiForgeAdaptToRangeOptions(
@@ -161,6 +166,35 @@ public sealed record MidiForgeGeneratePitchBendNotesResult(
     int ReplacedTracks,
     int GeneratedNotes,
     int SkippedTracks);
+
+public sealed record MidiForgeTransposeTracksOptions(
+    int Semitones,
+    int MinimumNoteNumber = 0,
+    int MaximumNoteNumber = 127,
+    bool CreateNewTracks = false);
+
+public sealed record MidiForgeMergeTracksOptions(
+    int TargetTrackIndex,
+    bool IncludeProgramChange,
+    bool IncludePitchBend,
+    bool IncludeControlChange = true,
+    int ToleranceMs = 0,
+    bool RemoveEqualNotes = true,
+    bool DeleteOriginalTracks = false);
+
+public sealed record MidiForgeQuantizeTracksOptions(
+    IGrid Grid,
+    QuantizingSettings Settings,
+    bool CreateNewTrack = false);
+
+public sealed record MidiForgeQuantizeSelectedNotesOptions(
+    int TrackIndex,
+    HashSet<(long tick, byte noteNum, byte channel)> SelectedKeys,
+    IGrid Grid,
+    QuantizingSettings Settings);
+
+public sealed record MidiForgeSanitizeOptions(
+    SanitizingSettings Settings);
 
 public sealed record MidiForgeChangeNoteLengthOptions(
     long MinimumLengthTicks = 0,

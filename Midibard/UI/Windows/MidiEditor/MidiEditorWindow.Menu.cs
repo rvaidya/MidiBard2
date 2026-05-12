@@ -114,11 +114,14 @@ public partial class MidiEditorWindow
 
         if (ImGui.MenuItem($"Clone Selected Tracks{selSuffix}", default, false, hasSelNC))
         {
-            CaptureHistorySnapshot();
-            foreach (var idx in selNC.OrderByDescending(i => i))
-                _file!.CloneTrack(idx);
-            _selectedTrackIndices.Clear();
-            _globalTracksChecked = false;
+            ExecuteDirectEdit(() =>
+            {
+                foreach (var idx in selNC.OrderByDescending(i => i))
+                    _file!.CloneTrack(idx);
+                _selectedTrackIndices.Clear();
+                _globalTracksChecked = false;
+                return true;
+            });
         }
 
         var canDelete = hasSel && _selectedTrackIndices.Any(
@@ -163,14 +166,17 @@ public partial class MidiEditorWindow
 
         if (ImGui.MenuItem("Split Selected Track by Channel", default, false, canSplit))
         {
-            CaptureHistorySnapshot();
-            _file!.SplitTrackByChannel(_selectedTrackIndex);
-            if (_selectedTrackIndex >= _file.Tracks.Count)
+            ExecuteDirectEdit(() =>
             {
-                _selectedTrackIndex = -1;
-                _selectedEventIndices.Clear();
-            }
-            _selectedTrackIndices.Clear();
+                _file!.SplitTrackByChannel(_selectedTrackIndex);
+                if (_selectedTrackIndex >= _file.Tracks.Count)
+                {
+                    _selectedTrackIndex = -1;
+                    _selectedEventIndices.Clear();
+                }
+                _selectedTrackIndices.Clear();
+                return true;
+            });
         }
 
         ImGui.Separator();

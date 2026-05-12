@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using MidiBard.Control.MidiControl.Editing;
@@ -10,6 +11,18 @@ public partial class MidiEditorWindow
     {
         if (_file == null) return;
         _history.Capture(_file);
+    }
+
+    private bool ExecuteDirectEdit(Func<bool> edit, MidiEditorTransformResult? refresh = null)
+    {
+        if (_file == null)
+            return false;
+
+        var committed = MidiEditorDirectEditExecutor.Execute(_history, _file, edit);
+        if (committed && refresh != null)
+            ApplyTransformRefresh(refresh);
+
+        return committed;
     }
 
     private MidiEditorTransformExecutionResult ExecuteEditorTransform<TOptions>(
@@ -56,7 +69,7 @@ public partial class MidiEditorWindow
         }
 
         if (result.ClearSelectedTrack)
-            _selectedTrackIndex = -1;
+            SelectTrack(-1);
     }
 
     private void BeginGestureHistoryScope()
