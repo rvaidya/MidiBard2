@@ -65,9 +65,9 @@ public partial class MidiEditorWindow
         using var popup = ImRaii.Popup("##ImportFromUrlPopup");
         if (!popup) return;
 
-        if (_sourceImportClosePopup)
+        if (_importState.SourceImportClosePopup)
         {
-            _sourceImportClosePopup = false;
+            _importState.SourceImportClosePopup = false;
             ImGui.CloseCurrentPopup();
             return;
         }
@@ -76,10 +76,10 @@ public partial class MidiEditorWindow
         ImGui.Separator();
         ImGui.Spacing();
 
-        using (ImRaii.Disabled(_sourceImportInProgress))
+        using (ImRaii.Disabled(_importState.SourceImportInProgress))
         {
             ImGui.SetNextItemWidth(520f * ImGuiHelpers.GlobalScale);
-            ImGui.InputText("URL##sourceImportUrl", ref _sourceImportUrl, 2048);
+            ImGui.InputText("URL##sourceImportUrl", ref _importState.SourceUrl, 2048);
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Supports direct MIDI/tab URLs and best-effort MuseScore score URLs.");
 
@@ -87,17 +87,17 @@ public partial class MidiEditorWindow
             DrawImportNormalizationOptions();
         }
 
-        if (!string.IsNullOrWhiteSpace(_sourceImportError))
+        if (!string.IsNullOrWhiteSpace(_importState.SourceImportError))
         {
             ImGui.Spacing();
             using var color = ImRaii.PushColor(ImGuiCol.Text, Style.Colors.Red);
-            ImGui.TextWrapped(_sourceImportError);
+            ImGui.TextWrapped(_importState.SourceImportError);
         }
 
-        if (_sourceImportInProgress)
+        if (_importState.SourceImportInProgress)
         {
             ImGui.Spacing();
-            ImGui.TextDisabled(string.IsNullOrWhiteSpace(_sourceImportStatus) ? "Importing..." : _sourceImportStatus);
+            ImGui.TextDisabled(string.IsNullOrWhiteSpace(_importState.SourceImportStatus) ? "Importing..." : _importState.SourceImportStatus);
             if (ImGuiUtil.DangerButton("Cancel##cancelUrlImport"))
                 CancelSourceImport();
         }
@@ -108,7 +108,7 @@ public partial class MidiEditorWindow
             ImGui.Spacing();
 
             if (ImGuiUtil.SuccessButton("Import##importUrl"))
-                StartSourceImport(new MidiForgeSourceImportRequest(_sourceImportUrl, BuildImportOptions()));
+                StartSourceImport(new MidiForgeSourceImportRequest(_importState.SourceUrl, BuildImportOptions()));
 
             ImGui.SameLine();
 
@@ -119,40 +119,40 @@ public partial class MidiEditorWindow
 
     private void DrawImportNormalizationOptions()
     {
-        ImGui.Checkbox("Split tracks by channel##importSplitByChannel", ref _importSplitTracksByChannel);
+        ImGui.Checkbox("Split tracks by channel##importSplitByChannel", ref _importState.SplitTracksByChannel);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Creates separate tracks for source tracks that contain multiple MIDI channels.");
 
-        ImGui.Checkbox("Sort tracks##importSortTracks", ref _importSortTracks);
+        ImGui.Checkbox("Sort tracks##importSortTracks", ref _importState.SortTracks);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Moves conductor tracks first, then melody/vocal tracks, other instruments, and drum tracks.");
 
-        ImGui.Checkbox("Overwrite track names##importOverwriteNames", ref _importOverwriteTrackNames);
+        ImGui.Checkbox("Overwrite track names##importOverwriteNames", ref _importState.OverwriteTrackNames);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Replaces existing performance-track names with inferred MIDI program or drum names.");
 
-        ImGui.Checkbox("Remove non-lyric metadata##importRemoveNonLyricMetadata", ref _importRemoveNonLyricMetadata);
+        ImGui.Checkbox("Remove non-lyric metadata##importRemoveNonLyricMetadata", ref _importState.RemoveNonLyricMetadata);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Removes nonessential copyright, marker, cue point, device name, and sequence number events while keeping lyrics for LRC export.");
 
-        ImGui.Checkbox("Remove lyrics/text events##importRemoveLyricsText", ref _importRemoveLyricsAndText);
+        ImGui.Checkbox("Remove lyrics/text events##importRemoveLyricsText", ref _importState.RemoveLyricsAndText);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Removes MIDI lyric and text events. Leave this off if you want to export LRC lyrics after import.");
 
-        ImGui.Checkbox("Remove sequencer-specific events##importRemoveSequencerSpecific", ref _importRemoveSequencerSpecificEvents);
+        ImGui.Checkbox("Remove sequencer-specific events##importRemoveSequencerSpecific", ref _importState.RemoveSequencerSpecificEvents);
 
-        ImGui.Checkbox("Optimize track channels##importOptimizeChannels", ref _importOptimizeChannels);
+        ImGui.Checkbox("Optimize track channels##importOptimizeChannels", ref _importState.OptimizeChannels);
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Assigns non-drum performance tracks to compact MIDI channels while preserving shared program channels.");
 
         ImGui.Spacing();
         ImGui.SetNextItemWidth(220f * ImGuiHelpers.GlobalScale);
-        ImGui.Combo("Trim start##importTrimStart", ref _importTrimStartModeIndex, ImportTrimStartLabels, ImportTrimStartLabels.Length);
+        ImGui.Combo("Trim start##importTrimStart", ref _importState.TrimStartModeIndex, ImportTrimStartLabels, ImportTrimStartLabels.Length);
     }
 
     private MidiForgeImportOptions BuildImportOptions()
     {
-        var trimMode = _importTrimStartModeIndex switch
+        var trimMode = _importState.TrimStartModeIndex switch
         {
             1 => MidiForgeTrimStartMode.UntilFirstNote,
             2 => MidiForgeTrimStartMode.EmptyBars,
@@ -160,13 +160,13 @@ public partial class MidiEditorWindow
         };
 
         return new MidiForgeImportOptions(
-            SplitTracksByChannel: _importSplitTracksByChannel,
-            SortTracks: _importSortTracks,
-            OverwriteTrackNames: _importOverwriteTrackNames,
-            RemoveNonLyricMetadata: _importRemoveNonLyricMetadata,
-            RemoveLyricsAndText: _importRemoveLyricsAndText,
-            RemoveSequencerSpecificEvents: _importRemoveSequencerSpecificEvents,
-            OptimizeChannels: _importOptimizeChannels,
+            SplitTracksByChannel: _importState.SplitTracksByChannel,
+            SortTracks: _importState.SortTracks,
+            OverwriteTrackNames: _importState.OverwriteTrackNames,
+            RemoveNonLyricMetadata: _importState.RemoveNonLyricMetadata,
+            RemoveLyricsAndText: _importState.RemoveLyricsAndText,
+            RemoveSequencerSpecificEvents: _importState.RemoveSequencerSpecificEvents,
+            OptimizeChannels: _importState.OptimizeChannels,
             TrimStartMode: trimMode);
     }
 
@@ -299,22 +299,22 @@ public partial class MidiEditorWindow
 
     private void StartSourceImport(MidiForgeSourceImportRequest request)
     {
-        if (_sourceImportInProgress)
+        if (_importState.SourceImportInProgress)
             return;
 
         if (string.IsNullOrWhiteSpace(request.Source))
         {
-            _sourceImportError = "Import source is empty.";
+            _importState.SourceImportError = "Import source is empty.";
             return;
         }
 
-        _sourceImportCancellation?.Dispose();
-        _sourceImportCancellation = new CancellationTokenSource();
-        _sourceImportInProgress = true;
-        _sourceImportError = string.Empty;
-        _sourceImportStatus = "Importing...";
+        _importState.SourceImportCancellation?.Dispose();
+        _importState.SourceImportCancellation = new CancellationTokenSource();
+        _importState.SourceImportInProgress = true;
+        _importState.SourceImportError = string.Empty;
+        _importState.SourceImportStatus = "Importing...";
 
-        var token = _sourceImportCancellation.Token;
+        var token = _importState.SourceImportCancellation.Token;
         _ = Task.Run(async () =>
         {
             try
@@ -332,9 +332,9 @@ public partial class MidiEditorWindow
             {
                 await DalamudApi.Framework.RunOnFrameworkThread(() =>
                 {
-                    _sourceImportInProgress = false;
-                    _sourceImportStatus = string.Empty;
-                    _sourceImportError = "Import canceled.";
+                    _importState.SourceImportInProgress = false;
+                    _importState.SourceImportStatus = string.Empty;
+                    _importState.SourceImportError = "Import canceled.";
                 });
             }
             catch (Exception e)
@@ -342,9 +342,9 @@ public partial class MidiEditorWindow
                 DalamudApi.PluginLog.Error(e, "[MidiEditor] Source import failed");
                 await DalamudApi.Framework.RunOnFrameworkThread(() =>
                 {
-                    _sourceImportInProgress = false;
-                    _sourceImportStatus = string.Empty;
-                    _sourceImportError = $"Import failed: {e.Message}";
+                    _importState.SourceImportInProgress = false;
+                    _importState.SourceImportStatus = string.Empty;
+                    _importState.SourceImportError = $"Import failed: {e.Message}";
                     DalamudApi.PrintError("Import failed. See plugin log for details.");
                 });
             }
@@ -360,15 +360,15 @@ public partial class MidiEditorWindow
 
         DalamudApi.PrintEcho($"Imported {result.DisplayName}. {BuildImportSummary(result.NormalizationResult)}");
 
-        _sourceImportInProgress = false;
-        _sourceImportStatus = string.Empty;
-        _sourceImportError = string.Empty;
-        _sourceImportClosePopup = true;
+        _importState.SourceImportInProgress = false;
+        _importState.SourceImportStatus = string.Empty;
+        _importState.SourceImportError = string.Empty;
+        _importState.SourceImportClosePopup = true;
     }
 
     private void CancelSourceImport()
     {
-        _sourceImportCancellation?.Cancel();
-        _sourceImportStatus = "Canceling...";
+        _importState.SourceImportCancellation?.Cancel();
+        _importState.SourceImportStatus = "Canceling...";
     }
 }

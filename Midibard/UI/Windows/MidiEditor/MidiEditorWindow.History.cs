@@ -1,3 +1,7 @@
+using System.Linq;
+
+using MidiBard.Control.MidiControl.Editing;
+
 namespace MidiBard;
 
 public partial class MidiEditorWindow
@@ -6,6 +10,53 @@ public partial class MidiEditorWindow
     {
         if (_file == null) return;
         _history.Capture(_file);
+    }
+
+    private MidiEditorTransformExecutionResult ExecuteEditorTransform<TOptions>(
+        IMidiEditorTransform<TOptions> transform,
+        TOptions options,
+        int[]? selectedTrackIndices = null)
+    {
+        if (_file == null)
+            return MidiEditorTransformExecutionResult.ValidationFailed("No MIDI file is loaded.");
+
+        var context = new MidiEditorTransformContext(
+            _file,
+            selectedTrackIndices ?? GetSelectedPerformanceTrackIndices(),
+            _selectedTrackIndex,
+            _selectedEventIndices.ToArray());
+
+        var execution = _transformExecutor.Execute(context, transform, options);
+        if (execution.Changed)
+            ApplyTransformRefresh(execution.Result);
+
+        return execution;
+    }
+
+    private void ApplyTransformRefresh(MidiEditorTransformResult result)
+    {
+        if (result.ReloadSelectedTrack
+            && _file != null
+            && _selectedTrackIndex >= 0
+            && _selectedTrackIndex < _file.Tracks.Count)
+        {
+            _file.Tracks[_selectedTrackIndex].LoadEvents(_file.TempoMap);
+        }
+
+        if (result.ClearEventSelection)
+        {
+            _selectedEventIndices.Clear();
+            _globalEventsChecked = false;
+        }
+
+        if (result.ClearTrackSelection)
+        {
+            _selectedTrackIndices.Clear();
+            _globalTracksChecked = false;
+        }
+
+        if (result.ClearSelectedTrack)
+            _selectedTrackIndex = -1;
     }
 
     private void BeginGestureHistoryScope()

@@ -37,11 +37,20 @@ public class EditableMidiFile
     public string DisplayName { get; set; }
     public int Version { get; private set; }
     private bool _isDirty;
-    public bool IsDirty
+
+    public bool IsDirty => _isDirty;
+
+    public void MarkChanged()
     {
-        get => _isDirty;
-        set { if (value) Version++; _isDirty = value; }
+        Version++;
+        _isDirty = true;
     }
+
+    public void MarkClean()
+        => _isDirty = false;
+
+    internal void SetDirtyStateForLoad(bool isDirty)
+        => _isDirty = isDirty;
 
     public EditableMidiFile(MidiFile source, string? filePath = null, string? displayName = null)
     {
@@ -117,7 +126,7 @@ public class EditableMidiFile
         Tracks.Insert(toIndex, track);
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
 
-        IsDirty = true;
+        MarkChanged();
     }
 
     public void RemoveTrack(int index)
@@ -128,7 +137,7 @@ public class EditableMidiFile
         Tracks.RemoveAt(index);
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
 
-        IsDirty = true;
+        MarkChanged();
     }
 
     public void CloneTrack(int index)
@@ -146,7 +155,7 @@ public class EditableMidiFile
         Tracks.Insert(index + 1, newTrack);
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
 
-        IsDirty = true;
+        MarkChanged();
     }
 
     public void ConsolidateTempoToConductorTrack()
@@ -184,7 +193,7 @@ public class EditableMidiFile
             }
         }
 
-        IsDirty = true;
+        MarkChanged();
     }
 
     public void SplitTrackByChannel(int trackIndex)
@@ -306,7 +315,7 @@ public class EditableMidiFile
         // Consolidate tempo events into the newly created conductor track
         ConsolidateTempoToConductorTrack();
 
-        IsDirty = true;
+        MarkChanged();
     }
 
     /// <summary>
@@ -453,7 +462,7 @@ public class EditableMidiFile
         }
 
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
-        if (importedCount > 0) IsDirty = true;
+        if (importedCount > 0) MarkChanged();
         return importedCount;
     }
 
@@ -497,7 +506,7 @@ public class EditableMidiFile
         if (changedNotes > 0 || toNewTrack)
         {
             for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
-            IsDirty = true;
+            MarkChanged();
         }
 
         return changedNotes;
@@ -595,7 +604,7 @@ public class EditableMidiFile
         }
 
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
-        IsDirty = true;
+        MarkChanged();
         return newTrack.Index;
     }
 
@@ -627,7 +636,7 @@ public class EditableMidiFile
             Tracks.Remove(extra);
         }
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
-        IsDirty = true;
+        MarkChanged();
     }
 
     /// <summary>
@@ -661,7 +670,7 @@ public class EditableMidiFile
         }
         for (int i = 0; i < Tracks.Count; i++) Tracks[i].Index = i;
         if (processedTracks)
-            IsDirty = true;
+            MarkChanged();
     }
 
     /// <summary>
@@ -688,7 +697,7 @@ public class EditableMidiFile
         };
 
         QuantizerUtilities.QuantizeObjects(t.Chunk, ObjectType.Note, grid, TempoMap, settings);
-        IsDirty = true;
+        MarkChanged();
     }
 
     /// <summary>
@@ -707,7 +716,7 @@ public class EditableMidiFile
         foreach (var t in Tracks) t.Dispose();
         LoadTracks();
         TempoMap = Source.GetTempoMap();
-        IsDirty = true;
+        MarkChanged();
     }
 
     private static int TransposeChunkNotes(TrackChunk chunk, int semitones, int minNoteNumber, int maxNoteNumber)
@@ -756,7 +765,7 @@ public class EditableMidiFile
         using (var stream = File.Create(FilePath))
             Source.Write(stream);
 
-        IsDirty = false;
+        MarkClean();
     }
 
     public void SaveAs(string path)
