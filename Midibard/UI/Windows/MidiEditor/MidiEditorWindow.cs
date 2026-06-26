@@ -337,6 +337,9 @@ public partial class MidiEditorWindow : Window, IDisposable
 
         var available = ImGui.GetContentRegionAvail();
         DrawEditorPanels(available);
+
+        DrawPendingTrackActionOverlay();
+        DrawPendingTrackContextMenu();
     }
 
     private void CloseFile()
