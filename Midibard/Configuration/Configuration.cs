@@ -109,8 +109,8 @@ public class Configuration : IPluginConfiguration
 
     public string NowPlayingFilePath = Path.Combine(DalamudApi.PluginInterface.ConfigDirectory.FullName, "midibard-now-playing.txt");
 
-    // Local automation endpoint. These settings are deliberately per-client so only the
-    // designated controller instance listens when multiple MidiBard clients are running.
+    // Local automation endpoint. Enablement is process-local so a newly launched client
+    // never starts another listener automatically. Port/token persist locally but are not IPC-synced.
     [NoSync]
     [Newtonsoft.Json.JsonIgnore]
     public bool RemoteControlEnabled = false;
