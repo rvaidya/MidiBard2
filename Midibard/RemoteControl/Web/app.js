@@ -18,6 +18,28 @@ const PLAY_MODE_DESCRIPTIONS = {
   random: "Choose another song from the active playlist, preferring unplayed songs."
 };
 
+function consumeUrlToken() {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(
+    window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash);
+  const token = (hash.get("token") || query.get("token") || "").trim();
+  if (!token) return null;
+
+  query.delete("token");
+  hash.delete("token");
+  const queryString = query.toString();
+  const hashString = hash.toString();
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname +
+      (queryString ? "?" + queryString : "") +
+      (hashString ? "#" + hashString : ""));
+  return token;
+}
+
 function formatTime(milliseconds) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -655,6 +677,12 @@ class RemoteController extends Component {
   componentDidMount() {
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
     window.addEventListener("focus", this.handleWindowFocus);
+
+    const urlToken = consumeUrlToken();
+    if (urlToken) {
+      this.connect(urlToken);
+      return;
+    }
 
     const savedToken = sessionStorage.getItem(TOKEN_KEY);
     if (savedToken) this.connect(savedToken);
