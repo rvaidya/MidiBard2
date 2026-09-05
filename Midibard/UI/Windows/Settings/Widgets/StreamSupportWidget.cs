@@ -95,6 +95,9 @@ public sealed class StreamSupportWidget : Widget
         if (cfg.RemoteControlEnabled)
         {
             var controllerUrl = $"http://localhost:{cfg.RemoteControlPort}/";
+            var controllerAccessUrl = string.IsNullOrWhiteSpace(cfg.RemoteControlToken)
+                ? controllerUrl
+                : controllerUrl + "#token=" + Uri.EscapeDataString(cfg.RemoteControlToken);
             var docsUrl = controllerUrl + "docs/";
 
             ImGui.TextUnformatted($"Controller: {controllerUrl}");
@@ -104,7 +107,14 @@ public sealed class StreamSupportWidget : Widget
 
             ImGui.SameLine();
             if (ImGui.Button("Open##RemoteControlControllerUrlOpen"))
-                WindowsApi.OpenUrl(controllerUrl);
+                WindowsApi.OpenUrl(controllerAccessUrl);
+
+            ImGui.SameLine();
+            using (ImRaii.Disabled(string.IsNullOrWhiteSpace(cfg.RemoteControlToken)))
+            {
+                if (ImGui.Button("Copy Access URL##RemoteControlControllerAccessUrlCopy"))
+                    ImGui.SetClipboardText(controllerAccessUrl);
+            }
 
             ImGui.TextUnformatted($"API docs: {docsUrl}");
             ImGui.SameLine();
