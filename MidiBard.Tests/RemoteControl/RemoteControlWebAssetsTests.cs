@@ -90,6 +90,27 @@ public class RemoteControlWebAssetsTests
         script.ShouldContain("\"Reconnecting\"");
     }
 
+    [Fact]
+    public void ControllerFormatsPlaylistDurationsWithHoursWhenNeeded()
+    {
+        RemoteControlWebAssets.TryGet("/app.js", out var asset).ShouldBeTrue();
+        var script = Encoding.UTF8.GetString(asset.Content);
+
+        script.ShouldContain("const hours = Math.floor(totalSeconds / 3600)");
+        script.ShouldContain("hours > 0");
+        script.ShouldContain("String(minutes).padStart(2, \"0\")");
+    }
+
+    [Fact]
+    public void PlaylistActionColumnStaysVisibleDuringHorizontalScroll()
+    {
+        RemoteControlWebAssets.TryGet("/styles.css", out var asset).ShouldBeTrue();
+        var styles = Encoding.UTF8.GetString(asset.Content);
+
+        styles.ShouldContain(".song-table th.action-column");
+        styles.ShouldContain(".song-table td.action-column { position: sticky; right: 0;");
+    }
+
     [Theory]
     [InlineData("/vendor/preact/../app.js")]
     [InlineData("/vendor/preact/")]
