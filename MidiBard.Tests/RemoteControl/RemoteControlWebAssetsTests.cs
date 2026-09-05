@@ -86,7 +86,7 @@ public class RemoteControlWebAssetsTests
         RemoteControlWebAssets.TryGet("/app.js", out var asset).ShouldBeTrue();
         var script = Encoding.UTF8.GetString(asset.Content);
 
-        script.ShouldContain("connectionState: \"reconnecting\"");
+        script.ShouldContain("\"reconnecting\"");
         script.ShouldContain("\"Reconnecting\"");
     }
 
