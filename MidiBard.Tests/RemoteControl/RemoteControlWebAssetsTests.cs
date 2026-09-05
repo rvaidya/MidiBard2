@@ -58,6 +58,38 @@ public class RemoteControlWebAssetsTests
         script.ShouldNotContain("/ensemble/auto-advance");
     }
 
+    [Fact]
+    public void ControllerAcceptsAndImmediatelyRemovesUrlTokens()
+    {
+        RemoteControlWebAssets.TryGet("/app.js", out var asset).ShouldBeTrue();
+        var script = Encoding.UTF8.GetString(asset.Content);
+
+        script.ShouldContain("hash.get(\"token\") || query.get(\"token\")");
+        script.ShouldContain("window.history.replaceState");
+        script.ShouldContain("const urlToken = consumeUrlToken()");
+    }
+
+    [Fact]
+    public void ControllerDoesNotSurfaceNonJsonProxyBodies()
+    {
+        RemoteControlWebAssets.TryGet("/app.js", out var asset).ShouldBeTrue();
+        var script = Encoding.UTF8.GetString(asset.Content);
+
+        script.ShouldContain("Remote-control server unavailable (HTTP ");
+        script.ShouldContain("Unable to reach the MidiBard remote-control server.");
+        script.ShouldNotContain("await response.text()");
+    }
+
+    [Fact]
+    public void ControllerShowsTransportReconnectState()
+    {
+        RemoteControlWebAssets.TryGet("/app.js", out var asset).ShouldBeTrue();
+        var script = Encoding.UTF8.GetString(asset.Content);
+
+        script.ShouldContain("connectionState: \"reconnecting\"");
+        script.ShouldContain("\"Reconnecting\"");
+    }
+
     [Theory]
     [InlineData("/vendor/preact/../app.js")]
     [InlineData("/vendor/preact/")]
