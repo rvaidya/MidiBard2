@@ -186,6 +186,38 @@ public class RemoteControlContractTests
     }
 
     [Fact]
+    public void RemoteEnableFlagIsProcessLocalWhileConnectionSettingsPersist()
+    {
+        var enabled = typeof(Configuration)
+            .GetField(nameof(Configuration.RemoteControlEnabled));
+        enabled.ShouldNotBeNull();
+        enabled!.GetCustomAttributes()
+            .Select(attribute => attribute.GetType().Name)
+            .ShouldContain("NoSyncAttribute");
+        enabled.GetCustomAttributes(
+                typeof(Newtonsoft.Json.JsonIgnoreAttribute),
+                inherit: false)
+            .ShouldNotBeEmpty();
+
+        foreach (var fieldName in new[]
+                 {
+                     nameof(Configuration.RemoteControlPort),
+                     nameof(Configuration.RemoteControlToken),
+                 })
+        {
+            var field = typeof(Configuration).GetField(fieldName);
+            field.ShouldNotBeNull();
+            field!.GetCustomAttributes()
+                .Select(attribute => attribute.GetType().Name)
+                .ShouldContain("NoSyncAttribute");
+            field.GetCustomAttributes(
+                    typeof(Newtonsoft.Json.JsonIgnoreAttribute),
+                    inherit: false)
+                .ShouldBeEmpty();
+        }
+    }
+
+    [Fact]
     public void StatusEventSerializesWithoutPlaybackIdentity()
     {
         var response = new PlaybackEventResponse(
