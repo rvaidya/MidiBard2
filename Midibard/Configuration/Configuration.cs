@@ -112,6 +112,7 @@ public class Configuration : IPluginConfiguration
     // Local automation endpoint. These settings are deliberately per-client so only the
     // designated controller instance listens when multiple MidiBard clients are running.
     [NoSync]
+    [Newtonsoft.Json.JsonIgnore]
     public bool RemoteControlEnabled = false;
     [NoSync]
     public int RemoteControlPort = 38471;
