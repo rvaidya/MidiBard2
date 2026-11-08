@@ -20,8 +20,13 @@ public class PartyWatcher : IDisposable
     {
         60, // join party (others)
         61, // join party (leader)
+        64, // now the party leader
+        65, // has promoted you to party leader
+        66, // the new party leader.
         68, // leave party (leader)
         69, // left party (others)
+        70, // You leave your party.
+        71, // left the party.   promoted to party leader.
         72, // dissolve party (leader)
         73, // party dissolved (others)
     };
